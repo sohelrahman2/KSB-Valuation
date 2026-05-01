@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KSB Limited — Equity Valuation Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #222; font-size: 13px; }
+
+  .top-bar { background: #1F3864; color: white; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+  .top-bar h1 { font-size: 18px; font-weight: 700; }
+  .top-bar .meta { font-size: 11px; opacity: 0.8; text-align: right; line-height: 1.6; }
+
+  .sub-bar { background: #2E5DA8; color: white; padding: 6px 24px; font-size: 11px; display: flex; gap: 20px; }
+  .sub-bar span { opacity: 0.9; }
+  .sub-bar b { opacity: 1; }
+
+  .main { display: grid; grid-template-columns: 300px 1fr; gap: 0; min-height: calc(100vh - 80px); }
+
+  /* LEFT PANEL */
+  .left { background: #1F3864; color: white; padding: 16px; overflow-y: auto; }
+  .left h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #BDD7EE; margin-bottom: 10px; border-bottom: 1px solid #2E5DA8; padding-bottom: 6px; }
+
+  .scenario-btns { display: flex; gap: 6px; margin-bottom: 14px; }
+  .sc-btn { flex: 1; padding: 8px 4px; border: 2px solid transparent; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: 700; transition: all 0.2s; }
+  .sc-btn.base  { background: #2E5DA8; color: white; border-color: #BDD7EE; }
+  .sc-btn.bull  { background: #00B050; color: white; }
+  .sc-btn.bear  { background: #FF0000; color: white; }
+  .sc-btn.active { outline: 3px solid #FFFF00; outline-offset: 2px; }
+
+  .slider-group { margin-bottom: 14px; }
+  .slider-label { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px; color: #BDD7EE; }
+  .slider-label b { color: #FFFF00; font-size: 12px; }
+  input[type=range] { width: 100%; accent-color: #BDD7EE; cursor: pointer; }
+
+  .kpi-box { background: #0F2040; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+  .kpi-box .kpi-label { font-size: 10px; color: #BDD7EE; margin-bottom: 4px; }
+  .kpi-box .kpi-val { font-size: 18px; font-weight: 700; color: #FFFF00; }
+  .kpi-box .kpi-sub { font-size: 10px; color: #8aa; margin-top: 2px; }
+  .kpi-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+  /* RIGHT PANEL */
+  .right { padding: 14px; overflow-y: auto; }
+
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .card { background: white; border-radius: 6px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-top: 3px solid #2E5DA8; }
+  .card .c-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .c-val   { font-size: 20px; font-weight: 700; color: #1F3864; margin: 2px 0; }
+  .card .c-sub   { font-size: 10px; color: #888; }
+  .card.green { border-top-color: #00B050; }
+  .card.red   { border-top-color: #FF0000; }
+  .card.yellow { border-top-color: #FFBF00; }
+
+  .section { background: white; border-radius: 6px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .section h4 { font-size: 12px; font-weight: 700; color: #1F3864; border-bottom: 2px solid #BDD7EE; padding-bottom: 6px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* CHARTS */
+  .chart-area { position: relative; height: 180px; display: flex; align-items: flex-end; gap: 8px; padding: 10px 0 24px; }
+  .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+  .bar { width: 100%; border-radius: 3px 3px 0 0; transition: height 0.5s ease; min-height: 2px; }
+  .bar-label { font-size: 9px; color: #666; text-align: center; white-space: nowrap; }
+  .bar-val { font-size: 9px; font-weight: 700; color: #1F3864; text-align: center; }
+
+  /* TABLES */
+  table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  th { background: #1F3864; color: white; padding: 6px 8px; text-align: center; font-size: 10px; }
+  th:first-child { text-align: left; }
+  td { padding: 5px 8px; border-bottom: 1px solid #eee; text-align: center; }
+  td:first-child { text-align: left; font-weight: 600; color: #1F3864; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  tr.bold-row td { font-weight: 700; background: #FFF9E6 !important; }
+  tr.total-row td { background: #1F3864 !important; color: white !important; font-weight: 700; }
+
+  /* FOOTBALL FIELD */
+  .ff-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .ff-label { width: 140px; font-size: 10px; color: #444; flex-shrink: 0; }
+  .ff-track { flex: 1; background: #f0f4f8; border-radius: 4px; height: 22px; position: relative; }
+  .ff-bar { position: absolute; height: 100%; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: white; }
+  .ff-cmp { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #FF0000; z-index: 10; }
+  .ff-cmp-label { position: absolute; top: -16px; font-size: 9px; color: #FF0000; font-weight: 700; white-space: nowrap; transform: translateX(-50%); }
+
+  /* SENSITIVITY */
+  .sens-grid { display: grid; font-size: 10px; }
+  .sens-cell { padding: 4px 6px; text-align: center; border: 1px solid #eee; }
+  .sens-hdr  { background: #1F3864; color: white; font-weight: 700; }
+  .sens-row-hdr { background: #BDD7EE; font-weight: 700; color: #1F3864; }
+  .sens-base { background: #FFFF00 !important; font-weight: 700; color: #1F3864; }
+  .sens-high { background: #C6EFCE; color: #1F3864; }
+  .sens-med  { background: #FFEB9C; color: #1F3864; }
+  .sens-low  { background: #FFC7CE; color: #9C0006; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; margin-right: 4px; }
+  .tag-green { background: #C6EFCE; color: #1F3864; }
+  .tag-red   { background: #FFC7CE; color: #9C0006; }
+  .tag-blue  { background: #BDD7EE; color: #1F3864; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div>
+    <h1>🏭 KSB LIMITED — Equity Valuation Dashboard</h1>
+    <div style="font-size:11px;opacity:0.8;margin-top:2px;">NSE: KSB | BSE: 500249 | Industrial Products — Pumps, Valves & Systems</div>
+  </div>
+  <div class="meta">
+    April 2026 | INR Millions (MM)<br>
+    For Educational Purposes Only
+  </div>
+</div>
+
+<div class="sub-bar">
+  <span>CMP: <b>₹972</b></span>
+  <span>Market Cap: <b>₹16,913 MM</b></span>
+  <span>WACC: <b>11.63%</b></span>
+  <span>Beta: <b>0.82 (comps) | 1.49 (regression)</b></span>
+  <span>Net Cash: <b>₹18,298 MM</b></span>
+  <span>EV: <b>−₹1,385 MM (net cash co.)</b></span>
+</div>
+
+<div class="main">
+
+<!-- LEFT: CONTROLS -->
+<div class="left">
+  <h3>⚡ Scenario Selector</h3>
+  <div class="scenario-btns">
+    <button class="sc-btn base active" onclick="setScenario('base')">Base</button>
+    <button class="sc-btn bull" onclick="setScenario('bull')">Bull</button>
+    <button class="sc-btn bear" onclick="setScenario('bear')">Bear</button>
+  </div>
+
+  <h3>🎛 DCF Assumptions</h3>
+
+  <div class="slider-group">
+    <div class="slider-label"><span>WACC</span><b id="wacc-val">11.63%</b></div>
+    <input type="range" id="wacc" min="7" max="18" step="0.1" value="11.63" oninput="update()">
+  </div>
+
+  <div class="slider-group">
+    <div class="slider-label"><span>Terminal Growth (g)</span><b id="g-val">4.0%</b></div>
+    <input type="range" id="grate" min="1" max="8" step="0.5" value="4" oninput="update()">
+  </div>
+
+  <div class="slider-group">
+    <div class="slider-label"><span>EV/EBITDA Exit Multiple</span><b id="mult-val">15.0x</b></div>
+    <input type="range" id="mult" min="8" max="40" step="0.5" value="15" oninput="update()">
+  </div>
+
+  <div class="slider-group">
+    <div class="slider-label"><span>Revenue Growth FY26E</span><b id="rev-val">8.0%</b></div>
+    <input type="range" id="revgrow" min="2" max="30" step="0.5" value="8" oninput="update()">
+  </div>
+
+  <div class="slider-group">
+    <div class="slider-label"><span>EBITDA Margin FY26E</span><b id="margin-val">13.6%</b></div>
+    <input type="range" id="margin" min="8" max="22" step="0.5" value="13.6" oninput="update()">
+  </div>
+
+  <h3 style="margin-top:14px">📊 Live DCF Output</h3>
+
+  <div class="kpi-box">
+    <div class="kpi-label">Blended DCF Price</div>
+    <div class="kpi-val" id="kpi-blended">₹414</div>
+    <div class="kpi-sub" id="kpi-updown">(57%) vs CMP ₹972</div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-box">
+      <div class="kpi-label">GGM Price</div>
+      <div class="kpi-val" id="kpi-ggm">₹263</div>
+      <div class="kpi-sub">g = 4.0%</div>
+    </div>
+    <div class="kpi-box">
+      <div class="kpi-label">Exit Multiple</div>
+      <div class="kpi-val" id="kpi-em">₹565</div>
+      <div class="kpi-sub">15x EBITDA</div>
+    </div>
+  </div>
+
+  <div class="kpi-box" style="margin-top:6px">
+    <div class="kpi-label">Enterprise Value (GGM)</div>
+    <div class="kpi-val" id="kpi-ev" style="font-size:14px">₹27,518 MM</div>
+    <div class="kpi-sub">Sum PV FCFFs + PV Terminal Value</div>
+  </div>
+
+  <div class="kpi-box">
+    <div class="kpi-label">Equity Value (Blended)</div>
+    <div class="kpi-val" id="kpi-eqv" style="font-size:14px">₹72,046 MM</div>
+    <div class="kpi-sub">EV + Net Cash ₹18,298 MM</div>
+  </div>
+</div>
+
+<!-- RIGHT: CHARTS & TABLES -->
+<div class="right">
+
+  <!-- KPI CARDS -->
+  <div class="cards">
+    <div class="card"><div class="c-label">Revenue FY2025</div><div class="c-val">₹26,957</div><div class="c-sub">+6.4% YoY | MM</div></div>
+    <div class="card green"><div class="c-label">EBITDA FY2025</div><div class="c-val">₹3,735</div><div class="c-sub">13.9% margin</div></div>
+    <div class="card yellow"><div class="c-label">PAT FY2025</div><div class="c-val">₹2,559</div><div class="c-sub">EPS ₹15.54</div></div>
+    <div class="card"><div class="c-label">Net Cash FY2025</div><div class="c-val">₹18,298</div><div class="c-sub">Zero bank debt</div></div>
+  </div>
+
+  <div class="two-col">
+
+    <!-- REVENUE CHART -->
+    <div class="section">
+      <h4>📈 Revenue & EBITDA Trend (₹ MM)</h4>
+      <div class="chart-area" id="rev-chart"></div>
+    </div>
+
+    <!-- PAT CHART -->
+    <div class="section">
+      <h4>💰 PAT & EPS Trend</h4>
+      <div class="chart-area" id="pat-chart"></div>
+    </div>
+  </div>
+
+  <!-- IS PROJECTIONS TABLE -->
+  <div class="section">
+    <h4>📋 Income Statement Projections — <span id="scenario-label" style="color:#2E5DA8">Base Case</span> (₹ MM)</h4>
+    <table id="is-table">
+      <thead><tr><th>Line Item</th><th>FY2025A</th><th>FY2026E</th><th>FY2027E</th><th>FY2028E</th><th>FY2029E</th><th>FY2030E</th></tr></thead>
+      <tbody id="is-body"></tbody>
+    </table>
+  </div>
+
+  <div class="two-col">
+
+    <!-- FCFF TABLE -->
+    <div class="section">
+      <h4>🔄 FCFF & Discounted Values (₹ MM)</h4>
+      <table id="fcff-table">
+        <thead><tr><th>Item</th><th>FY26E</th><th>FY27E</th><th>FY28E</th><th>FY29E</th><th>FY30E</th></tr></thead>
+        <tbody id="fcff-body"></tbody>
+      </table>
+    </div>
+
+    <!-- COMPS TABLE -->
+    <div class="section">
+      <h4>⚖️ Comps-Implied Price</h4>
+      <table>
+        <thead><tr><th>Method</th><th>Multiple</th><th>Metric</th><th>Eq. Value</th><th>Price</th></tr></thead>
+        <tbody>
+          <tr><td>EV/Revenue</td><td>4.7x</td><td>₹26,957</td><td>₹1,46,262</td><td><b>₹841</b></td></tr>
+          <tr><td>EV/EBITDA</td><td>25.3x</td><td>₹3,714</td><td>₹1,12,295</td><td><b>₹645</b></td></tr>
+          <tr><td>P/E</td><td>35.7x</td><td>₹2,559 PAT</td><td>₹91,357</td><td><b>₹525</b></td></tr>
+          <tr class="total-row"><td>CMP (NSE)</td><td>—</td><td>—</td><td>—</td><td>₹972</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:8px;font-size:10px;color:#666;">Net Cash = ₹18,298 MM (Cash 18,340 − Lease 42)<br>Equity = Implied EV − Debt + Cash</div>
+    </div>
+  </div>
+
+  <!-- FOOTBALL FIELD -->
+  <div class="section">
+    <h4>🏈 Football Field — Valuation Range vs CMP ₹972</h4>
+    <div id="football-field" style="padding: 8px 0;"></div>
+  </div>
+
+  <!-- SENSITIVITY -->
+  <div class="section">
+    <h4>🎯 Sensitivity: Implied Price (₹/sh) | Gordon Growth | WACC vs Terminal Growth</h4>
+    <div id="sens-grid"></div>
+    <div style="margin-top:6px;font-size:10px;color:#666;">🟡 Yellow = Base case (WACC 11.63%, g 4.0%) | 🟢 Green = Above ₹600 | 🔴 Red = Below ₹200</div>
+  </div>
+
+  <!-- SHAREHOLDING -->
+  <div class="two-col">
+    <div class="section">
+      <h4>👥 Shareholding Pattern</h4>
+      <table>
+        <thead><tr><th>Category</th><th>Dec 2024</th><th>Dec 2025</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td>Promoters (KSB SE, Germany)</td><td>69.80%</td><td>69.80%</td><td style="color:#888">0.00%</td></tr>
+          <tr><td>FII / FPI</td><td>5.33%</td><td>4.52%</td><td style="color:red">−0.81%</td></tr>
+          <tr><td>DII (incl. MF)</td><td>10.62%</td><td>11.95%</td><td style="color:green">+1.33%</td></tr>
+          <tr><td>Public / Retail</td><td>14.25%</td><td>13.73%</td><td style="color:red">−0.52%</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:8px;font-size:10px;">
+        <span class="tag tag-green">✅ Zero Pledged Shares</span>
+        <span class="tag tag-blue">69.8% Promoter</span>
+        <span class="tag tag-green">DII Rising</span>
+      </div>
+    </div>
+    <div class="section">
+      <h4>📐 Beta & WACC Summary</h4>
+      <table>
+        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>5-yr Regression Beta</td><td><b>1.49</b></td></tr>
+          <tr><td>Comps Relevered Beta</td><td><b>0.82</b></td></tr>
+          <tr><td>Risk-Free Rate</td><td>7.1%</td></tr>
+          <tr><td>ERP</td><td>6.2%</td></tr>
+          <tr><td>Cost of Equity (Ke)</td><td><b>12.18%</b></td></tr>
+          <tr><td>After-tax Kd</td><td>5.63%</td></tr>
+          <tr><td>Weight of Equity</td><td>99.75%</td></tr>
+          <tr class="bold-row"><td>WACC</td><td><b>11.63%</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODEL AUDIT -->
+  <div class="section">
+    <h4>🔍 Model Audit — Errors Found & Corrected</h4>
+    <table>
+      <thead><tr><th>#</th><th>Sheet</th><th>Error Found</th><th>Correction</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>WACC</td><td>Title = 'Comp Valuation'</td><td>Fixed to 'WACC'</td><td style="color:green">✅</td></tr>
+        <tr><td>2</td><td>Summary</td><td>Title = 'Comp Valuation'</td><td>Fixed to 'Valuation Summary'</td><td style="color:green">✅</td></tr>
+        <tr><td>3</td><td>Model R13</td><td>Interest rate = 1.4% (too low)</td><td>Corrected to 7.0% (IND AS 116)</td><td style="color:green">✅</td></tr>
+        <tr><td>4</td><td>Comp Val</td><td>Mkt Cap = ₹12,458 (price ₹716)</td><td>Updated to ₹16,913 (₹972)</td><td style="color:green">✅</td></tr>
+        <tr><td>5-8</td><td>Comp Val</td><td>Net Debt sign wrong / formula error</td><td>Equity = EV − Debt + Cash</td><td style="color:green">✅</td></tr>
+        <tr><td>9</td><td>Summary</td><td>CMP = ₹716 (stale)</td><td>Updated to ₹972</td><td style="color:green">✅</td></tr>
+        <tr><td>10</td><td>Model</td><td>Screener debt ₹520 MM (wrong)</td><td>Actual = ₹42 MM (lease only)</td><td style="color:green">✅</td></tr>
+        <tr><td>11</td><td>All</td><td>Cross-workbook #NAME? errors</td><td>Fixed to same-file references</td><td style="color:green">✅</td></tr>
+        <tr><td>12</td><td>DCF</td><td>Sheet missing</td><td>Created: FCFF DCF + Scenario dropdown</td><td style="color:green">✅</td></tr>
+        <tr class="bold-row"><td colspan="4">Final: 1,446 formulas | 0 errors | Balance Sheet balanced FY2021–FY2030</td><td style="color:green">✅ PASS</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="text-align:center;padding:10px;font-size:10px;color:#999;">
+    KSB Limited Equity Valuation Dashboard | April 2026 | For educational purposes only. Not investment advice. | Sources: NSE, BSE, Annual Reports 2021–2025
+  </div>
+
+</div><!-- end right -->
+</div><!-- end main -->
+
+<script>
+// ── DATA ──
+const hist = {
+  years: ['FY21','FY22','FY23','FY24','FY25'],
+  rev:   [14973, 18220, 22472, 25331, 26957],
+  ebitda:[2095,  2467,  2936,  3375,  3735],
+  pat:   [1494,  1827,  2087,  2475,  2559],
+  eps:   [8.59,  10.50, 12.00, 14.22, 15.54],
+};
+
+const scenarios = {
+  base: { label:'Base Case', growth:[0.080,0.069,0.058,0.049,0.041], color:'#2E5DA8' },
+  bull: { label:'Bull Case', growth:[0.230,0.200,0.170,0.140,0.120], color:'#00B050' },
+  bear: { label:'Bear Case', growth:[0.064,0.056,0.049,0.043,0.038], color:'#FF0000' },
+};
+
+let currentScenario = 'base';
+const NET_CASH = 18298, SHARES = 174, TAX = 0.25;
+const DEP_PCT = 0.0216, CAPEX_PCT = 0.0292, INT = 3;
+
+function setScenario(sc) {
+  currentScenario = sc;
+  document.querySelectorAll('.sc-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.sc-btn.' + sc).classList.add('active');
+  const gr = scenarios[sc].growth[0] * 100;
+  document.getElementById('revgrow').value = gr;
+  update();
+}
+
+function getVal(id) { return parseFloat(document.getElementById(id).value); }
+
+function update() {
+  const wacc  = getVal('wacc') / 100;
+  const g     = getVal('grate') / 100;
+  const mult  = getVal('mult');
+  const mg    = getVal('margin') / 100;
+  const rg0   = getVal('revgrow') / 100;
+
+  document.getElementById('wacc-val').textContent   = (wacc*100).toFixed(2) + '%';
+  document.getElementById('g-val').textContent       = (g*100).toFixed(1) + '%';
+  document.getElementById('mult-val').textContent    = mult.toFixed(1) + 'x';
+  document.getElementById('margin-val').textContent  = (mg*100).toFixed(1) + '%';
+  document.getElementById('rev-val').textContent     = (rg0*100).toFixed(1) + '%';
+
+  const sc = scenarios[currentScenario];
+  document.getElementById('scenario-label').textContent = sc.label;
+  document.getElementById('scenario-label').style.color = sc.color;
+
+  // Override first growth with slider
+  let growths = [...sc.growth];
+  growths[0] = rg0;
+
+  // Build projections
+  let rev = 26957;
+  const revs=[],ebitdas=[],eits=[],pbts=[],pats=[],eps_arr=[],deps=[],fcffs=[],pvs=[];
+
+  for (let i = 0; i < 5; i++) {
+    rev = rev * (1 + growths[i]);
+    const ebitda = rev * (mg - i*0.001);
+    const dep    = rev * DEP_PCT;
+    const ebit   = ebitda - dep;
+    const oi     = rev * 0.022;
+    const pbt    = ebit + oi - INT;
+    const tax    = pbt * TAX;
+    const pat    = pbt - tax;
+    const capex  = rev * CAPEX_PCT;
+    const dwc    = i === 0 ? rev * 0.0126 : rev * 0.003;
+    const nopat  = ebit * (1 - TAX);
+    const fcff   = nopat + dep - capex - dwc;
+    const df     = 1 / Math.pow(1 + wacc, i + 1);
+    revs.push(rev); ebitdas.push(ebitda); eits.push(ebit);
+    pbts.push(pbt); pats.push(pat); deps.push(dep);
+    fcffs.push(fcff); pvs.push(fcff * df);
+  }
+
+  const sumPV = pvs.reduce((a,b)=>a+b,0);
+
+  // Terminal Values
+  const tv_ggm = fcffs[4] * (1 + g) / (wacc - g);
+  const pv_tv_ggm = tv_ggm / Math.pow(1 + wacc, 5);
+  const ev_ggm = sumPV + pv_tv_ggm;
+
+  const tv_em  = ebitdas[4] * mult;
+  const pv_tv_em = tv_em / Math.pow(1 + wacc, 5);
+  const ev_em  = sumPV + pv_tv_em;
+
+  const eq_ggm = ev_ggm + NET_CASH;
+  const eq_em  = ev_em  + NET_CASH;
+  const p_ggm  = eq_ggm / SHARES;
+  const p_em   = eq_em  / SHARES;
+  const p_avg  = (p_ggm + p_em) / 2;
+  const updown = ((p_avg - 972) / 972 * 100).toFixed(1);
+
+  // Update KPIs
+  document.getElementById('kpi-ggm').textContent     = '₹' + Math.round(p_ggm);
+  document.getElementById('kpi-em').textContent      = '₹' + Math.round(p_em);
+  document.getElementById('kpi-blended').textContent = '₹' + Math.round(p_avg);
+  document.getElementById('kpi-ev').textContent      = '₹' + Math.round(ev_ggm).toLocaleString('en-IN') + ' MM';
+  document.getElementById('kpi-eqv').textContent     = '₹' + Math.round((eq_ggm+eq_em)/2).toLocaleString('en-IN') + ' MM';
+  const ud = document.getElementById('kpi-updown');
+  ud.textContent = (updown > 0 ? '+' : '') + updown + '% vs CMP ₹972';
+  ud.style.color = updown > 0 ? '#00B050' : '#FF6666';
+
+  // IS Table
+  const yrs = ['FY2025A','FY2026E','FY2027E','FY2028E','FY2029E','FY2030E'];
+  const fmt  = v => Math.round(v).toLocaleString('en-IN');
+  const fmtp = v => (v*100).toFixed(1)+'%';
+
+  const is_rows = [
+    {label:'Revenue', vals:[26957,...revs], bold:true},
+    {label:'YoY Growth', vals:['—',...growths.map(g=>'+'+(g*100).toFixed(1)+'%')]},
+    {label:'EBITDA',  vals:[3735,...ebitdas], bold:true},
+    {label:'EBITDA Margin', vals:['13.9%',...ebitdas.map((e,i)=>fmtp(e/revs[i]))]},
+    {label:'EBIT',    vals:[3152,...eits], bold:true},
+    {label:'PBT',     vals:[3459,...pbts]},
+    {label:'PAT',     vals:[2559,...pats], bold:true, yellow:true},
+    {label:'EPS (₹)', vals:[15.54,...pats.map(p=>(p/SHARES*10).toFixed(2))], bold:true},
+  ];
+
+  const isBody = document.getElementById('is-body');
+  isBody.innerHTML = is_rows.map(r => {
+    const cls = r.yellow ? 'bold-row' : (r.bold ? '' : '');
+    const cells = r.vals.map((v,i) => {
+      const disp = (typeof v === 'number' && !r.label.includes('EPS') && !r.label.includes('Growth') && !r.label.includes('Margin'))
+        ? fmt(v) : v;
+      return `<td>${disp}</td>`;
+    }).join('');
+    return `<tr class="${cls}"><td>${r.label}</td>${cells}</tr>`;
+  }).join('');
+
+  // FCFF Table
+  const fcffRows = [
+    {label:'NOPAT',       vals: eits.map(e=>e*(1-TAX))},
+    {label:'Add: D&A',    vals: deps},
+    {label:'Less: Capex', vals: revs.map(r=>-r*CAPEX_PCT)},
+    {label:'Less: ΔWC',   vals: fcffs.map((f,i)=>f - (eits[i]*(1-TAX)) - deps[i] + revs[i]*CAPEX_PCT)},
+    {label:'FCFF',        vals: fcffs, bold:true, yellow:true},
+    {label:'Disc. Factor',vals: pvs.map((p,i)=>p/fcffs[i]), fmt4:true},
+    {label:'PV of FCFF',  vals: pvs, bold:true},
+  ];
+  const fcffBody = document.getElementById('fcff-body');
+  fcffBody.innerHTML = fcffRows.map(r => {
+    const cls = r.yellow ? 'bold-row' : '';
+    const cells = r.vals.map(v => {
+      const d = r.fmt4 ? v.toFixed(4) : fmt(v);
+      return `<td>${d}</td>`;
+    }).join('');
+    return `<tr class="${cls}"><td>${r.label}</td>${cells}</tr>`;
+  }).join('');
+
+  // Add Sum PV row
+  fcffBody.innerHTML += `<tr class="total-row"><td>Sum PV FCFFs</td><td colspan="4"></td><td><b>${fmt(sumPV)}</b></td></tr>`;
+
+  // Revenue chart
+  renderBarChart('rev-chart',
+    hist.years.concat(['FY26E','FY27E','FY28E','FY29E','FY30E']),
+    hist.rev.concat(revs.map(Math.round)),
+    hist.ebitda.concat(ebitdas.map(Math.round)),
+    '#2E5DA8', '#BDD7EE');
+
+  // PAT chart
+  renderBarChart('pat-chart',
+    hist.years.concat(['FY26E','FY27E','FY28E','FY29E','FY30E']),
+    hist.pat.concat(pats.map(Math.round)),
+    null, '#1F3864', null, true);
+
+  // Football field
+  renderFootball(p_ggm, p_em, p_avg);
+
+  // Sensitivity
+  renderSensitivity(fcffs[4], ebitdas[4]);
+}
+
+function renderBarChart(id, labels, vals1, vals2, c1, c2, isEPS) {
+  const el = document.getElementById(id);
+  const max = Math.max(...vals1) * 1.1;
+  const h = 150;
+  el.innerHTML = labels.map((lbl, i) => {
+    const h1 = Math.max(2, (vals1[i] / max) * h);
+    const h2 = vals2 ? Math.max(2, (vals2[i] / max) * h) : 0;
+    const isForecast = i >= 5;
+    return `<div class="bar-wrap" style="opacity:${isForecast?0.8:1}">
+      <div class="bar-val" style="font-size:8px">${(vals1[i]/1000).toFixed(1)}k</div>
+      <div style="width:100%;display:flex;align-items:flex-end;gap:1px;justify-content:center">
+        <div class="bar" style="height:${h1}px;background:${c1};width:${vals2?'46%':'72%'};${isForecast?'opacity:0.75':''}"></div>
+        ${vals2 ? `<div class="bar" style="height:${h2}px;background:${c2};width:46%"></div>` : ''}
+      </div>
+      <div class="bar-label">${lbl}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderFootball(p_ggm, p_em, p_avg) {
+  const cmp = 972;
+  const methods = [
+    {label:'DCF — GGM (g=4%)',      lo:p_ggm*0.85, hi:p_ggm*1.15, color:'#2E5DA8'},
+    {label:'DCF — Exit 15x',        lo:p_em*0.85,  hi:p_em*1.15,  color:'#1F3864'},
+    {label:'DCF Blended (Avg)',      lo:p_avg*0.85, hi:p_avg*1.15, color:'#2E75B6'},
+    {label:'Comps — EV/EBITDA',     lo:545, hi:745, color:'#00B050'},
+    {label:'Comps — P/E',           lo:445, hi:605, color:'#00B050'},
+    {label:'Comps — EV/Revenue',    lo:711, hi:971, color:'#00B050'},
+  ];
+
+  const allVals = methods.flatMap(m=>[m.lo,m.hi]).concat([cmp]);
+  const minV = Math.min(...allVals) * 0.9;
+  const maxV = Math.max(...allVals) * 1.1;
+  const range = maxV - minV;
+  const toX = v => ((v - minV) / range * 100).toFixed(1) + '%';
+  const toW = (lo, hi) => ((hi - lo) / range * 100).toFixed(1) + '%';
+  const cmpX = ((cmp - minV) / range * 100).toFixed(1);
+
+  const ff = document.getElementById('football-field');
+  ff.innerHTML = methods.map(m => `
+    <div class="ff-row">
+      <div class="ff-label">${m.label}</div>
+      <div class="ff-track">
+        <div class="ff-bar" style="left:${toX(m.lo)};width:${toW(m.lo,m.hi)};background:${m.color}">
+          ₹${Math.round(m.lo)}–₹${Math.round(m.hi)}
+        </div>
+        <div class="ff-cmp" style="left:${cmpX}%">
+          <div class="ff-cmp-label">CMP ₹${cmp}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function renderSensitivity(fcff_last, ebitda_last) {
+  const waccs = [0.09, 0.10, 0.1163, 0.12, 0.13, 0.14];
+  const gs    = [0.02, 0.03, 0.04, 0.05, 0.06];
+
+  let html = '<div class="sens-grid" style="grid-template-columns: 90px repeat(' + waccs.length + ', 1fr)">';
+  html += '<div class="sens-cell sens-hdr">g \\ WACC</div>';
+  waccs.forEach(w => html += `<div class="sens-cell sens-hdr">${(w*100).toFixed(2)}%</div>`);
+
+  gs.forEach(gv => {
+    html += `<div class="sens-cell sens-row-hdr">g=${(gv*100).toFixed(0)}%</div>`;
+    waccs.forEach(w => {
+      if (w <= gv) { html += '<div class="sens-cell" style="background:#eee;color:#aaa">N/M</div>'; return; }
+      const tv = fcff_last * (1 + gv) / (w - gv);
+      const disc = (n) => 1 / Math.pow(1+w, n);
+      // rough sum PV (use fixed base FCFFs)
+      const baseFCFFs = [1894, 2326, 2340, 2435, 2532];
+      const spv = baseFCFFs.reduce((s,f,i)=>s+f*disc(i+1),0);
+      const pvtv = tv * disc(5);
+      const price = (spv + pvtv + NET_CASH) / SHARES;
+      const isBase = Math.abs(w-0.1163)<0.001 && Math.abs(gv-0.04)<0.001;
+      let cls = isBase ? 'sens-base' : (price>600?'sens-high':price>300?'sens-med':'sens-low');
+      html += `<div class="sens-cell ${cls}">₹${Math.round(price)}</div>`;
+    });
+  });
+  html += '</div>';
+  document.getElementById('sens-grid').innerHTML = html;
+}
+
+// Init
+update();
+</script>
+</body>
+</html>
